@@ -88,6 +88,38 @@ clean = sanitizeHtml(dirty, {
 
 Boom!
 
+For input stream, where html is a stream, supply options such as:
+
+
+```js
+var fs = require('fs');
+var sanitize = require('./index.js');
+var stream = require('stream');
+var echoStream = new stream.PassThrough();
+var htmlStream = fs.createReadStream('./test.html');
+echoStream.pipe(fs.createWriteStream('./sanitized.html'));
+
+sanitize(htmlStream, {
+  stream: {
+    // A readable stream
+    input: htmlStream,
+    // A writable stream
+    output: echoStream
+    // Callback function
+    callback: function(data) {
+      console.log(data);
+    }
+  },
+  allowedTags: false,
+  allowedAttributes: false,
+  exclusiveFilter: function(frame) {
+    return frame.tag === 'script' || frame.tag === 'style' || frame.tag === 'link';
+  }
+});
+
+```
+Note: Only use either stream.output or callback function, supplying both can lead to duplication.
+
 #### "I like your set but I want to add one more tag. Is there a convenient way?" Sure:
 
 ```js

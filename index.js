@@ -1,6 +1,7 @@
 var htmlparser = require('htmlparser2');
 var extend = require('xtend');
 var quoteRegexp = require('regexp-quote');
+var Result = require('./result');
 
 function each(obj, cb) {
   if (obj) Object.keys(obj).forEach(function (key) {
@@ -13,6 +14,10 @@ function has(obj, key) {
   return ({}).hasOwnProperty.call(obj, key);
 }
 
+function writeToStream(stream, chunk) {
+  stream.write(chunk);
+}
+
 module.exports = sanitizeHtml;
 
 // Ignore the _recursing flag; it's there for recursive
@@ -20,7 +25,15 @@ module.exports = sanitizeHtml;
 // https://github.com/fb55/htmlparser2/issues/105
 
 function sanitizeHtml(html, options, _recursing) {
-  var result = '';
+
+  function processChunk(chunk) {
+    if (options.stream && options.stream.output) {
+      writeToStream(options.stream.output, chunk);
+    }
+    return chunk;
+  }
+
+  var result = new Result(processChunk);
 
   function Frame(tag, attribs) {
     var that = this;
@@ -107,6 +120,7 @@ function sanitizeHtml(html, options, _recursing) {
   var transformMap = {};
   var skipText = false;
   var skipTextDepth = 0;
+  var txt;
 
   var parser = new htmlparser.Parser({
     onopentag: function(name, attribs) {
@@ -157,7 +171,7 @@ function sanitizeHtml(html, options, _recursing) {
         // We want the contents but not this tag
         return;
       }
-      result += '<' + name;
+      result.add('<' + name);
       if (!allowedAttributesMap || has(allowedAttributesMap, name) || allowedAttributesMap['*']) {
         each(attribs, function(value, a) {
           if (!allowedAttributesMap ||
@@ -178,9 +192,9 @@ function sanitizeHtml(html, options, _recursing) {
                 return;
               }
             }
-            result += ' ' + a;
+            result.add(' ' + a);
             if (value.length) {
-              result += '="' + escapeHtml(value) + '"';
+              result.add('="' + escapeHtml(value) + '"');
             }
           } else {
             delete frame.attribs[a];
@@ -188,11 +202,11 @@ function sanitizeHtml(html, options, _recursing) {
         });
       }
       if (options.selfClosing.indexOf(name) !== -1) {
-        result += " />";
+        result.add(" />");
       } else {
-        result += ">";
+        result.add(">");
         if (frame.innerText && !hasText && !options.textFilter) {
-          result += frame.innerText;
+          result.add(frame.innerText);
         }
       }
     },
@@ -214,13 +228,13 @@ function sanitizeHtml(html, options, _recursing) {
         // script tags is, by definition, game over for XSS protection, so if that's
         // your concern, don't allow them. The same is essentially true for style tags
         // which have their own collection of XSS vectors.
-        result += text;
+        result.add(text);
       } else {
         var escaped = escapeHtml(text);
         if (options.textFilter) {
-          result += options.textFilter(escaped);
+          result.add(options.textFilter(escaped));
         } else {
-          result += escaped;
+          result.add(escaped);
         }
       }
       if (stack.length) {
@@ -258,7 +272,8 @@ function sanitizeHtml(html, options, _recursing) {
       }
 
       if (options.exclusiveFilter && options.exclusiveFilter(frame)) {
-         result = result.substr(0, frame.tagPosition);
+         result.remove(0, frame.tagPosition);
+         result.flush();
          return;
       }
 
@@ -269,13 +284,42 @@ function sanitizeHtml(html, options, _recursing) {
          return;
       }
 
-      result += "</" + name + ">";
+      result.add("</" + name + ">");
+      result.flush();
     }
   }, options.parser);
-  parser.write(html);
-  parser.end();
 
-  return result;
+  if (options.stream) {
+    var inputStream = options.stream.input;
+    // If output is defined, pipe to that stream, else use callback
+    if (options.stream.output) {
+      // Test if it is an instance of stream using duck typing
+      var outputStream = options.stream.output;
+      if (!(typeof outputStream.write === 'function' && typeof outputStream.end === 'function')) {
+        throw new Error('Stream "output" field must point to a writeable stream');
+      }
+    } else if (options.stream.callback) {
+      if (typeof options.stream.callback !== 'function') {
+        throw new Error('Stream "callback" field must be a function');
+      }
+    }
+    // Then treat html variable as a stream
+      html.on('data', function (data) {
+        parser.write(data);
+      });
+
+      html.on('end', function () {
+        parser.end();
+        if (options.stream.callback) {
+          options.stream.callback(result.toString());
+        }
+      });
+    return undefined;
+  } else {
+    parser.write(html);
+    parser.end();
+    return result.toString();
+  }
 
   function escapeHtml(s) {
     if (typeof(s) !== 'string') {
