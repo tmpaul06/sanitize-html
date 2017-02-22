@@ -40,6 +40,7 @@ function sanitizeHtml(html, options, _recursing) {
     this.tag = tag;
     this.attribs = attribs || {};
     this.tagPosition = result.length;
+    this.escapeText = true;
     this.text = ''; // Node inner text
 
     this.updateParentNodeText = function() {
@@ -138,9 +139,9 @@ function sanitizeHtml(html, options, _recursing) {
         transformedTag = transformTagsMap[name](name, attribs);
 
         frame.attribs = attribs = transformedTag.attribs;
-
         if (transformedTag.text !== undefined) {
           frame.innerText = transformedTag.text;
+          frame.escapeText = !!transformedTag.escape;
         }
 
         if (name !== transformedTag.tagName) {
@@ -216,11 +217,13 @@ function sanitizeHtml(html, options, _recursing) {
       }
       var lastFrame = stack[stack.length-1];
       var tag;
+      var escape = true;
 
       if (lastFrame) {
         tag = lastFrame.tag;
         // If inner text was set by transform function then let's use it
         text = lastFrame.innerText !== undefined ? lastFrame.innerText : text;
+        escape = escape && lastFrame.escapeText;
       }
 
       if ((tag === 'script') || (tag === 'style')) {
@@ -230,7 +233,7 @@ function sanitizeHtml(html, options, _recursing) {
         // which have their own collection of XSS vectors.
         result.add(text);
       } else {
-        var escaped = escapeHtml(text);
+        var escaped = escape ? escapeHtml(text) : text;
         if (options.textFilter) {
           result.add(options.textFilter(escaped));
         } else {

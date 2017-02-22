@@ -262,7 +262,9 @@ clean = sanitizeHtml(dirty, {
     'a': function(tagName, attribs) {
         return {
             tagName: 'a',
-            text: 'Some text'
+            text: 'Some text',
+            // Do not escape the text. Set to true if HTML must be escaped
+            escape: false
         };
     }
   }
