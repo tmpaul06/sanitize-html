@@ -41,11 +41,12 @@ function sanitizeHtml(html, options, _recursing) {
     this.attribs = attribs || {};
     this.tagPosition = result.length;
     this.escapeText = true;
+    this.parent = null;
     this.text = ''; // Node inner text
 
     this.updateParentNodeText = function() {
       if (stack.length) {
-          var parentFrame = stack[stack.length - 1];
+          var parentFrame = that.parent;
           parentFrame.text += that.text;
       }
     };
@@ -130,18 +131,19 @@ function sanitizeHtml(html, options, _recursing) {
         return;
       }
       var frame = new Frame(name, attribs);
+      frame.parent = stack.length > 0 ? stack[stack.length - 1] : null;
       stack.push(frame);
 
       var skip = false;
       var hasText = frame.text ? true : false;
       var transformedTag;
       if (has(transformTagsMap, name)) {
-        transformedTag = transformTagsMap[name](name, attribs);
+        transformedTag = transformTagsMap[name](name, attribs, stack);
 
         frame.attribs = attribs = transformedTag.attribs;
         if (transformedTag.text !== undefined) {
           frame.innerText = transformedTag.text;
-          frame.escapeText = !!transformedTag.escape;
+          frame.escapeText = transformedTag.escape === false ? false : true;
         }
 
         if (name !== transformedTag.tagName) {
@@ -217,13 +219,13 @@ function sanitizeHtml(html, options, _recursing) {
       }
       var lastFrame = stack[stack.length-1];
       var tag;
-      var escape = true;
+      var escapeText = true;
 
       if (lastFrame) {
         tag = lastFrame.tag;
         // If inner text was set by transform function then let's use it
         text = lastFrame.innerText !== undefined ? lastFrame.innerText : text;
-        escape = escape && lastFrame.escapeText;
+        escapeText = lastFrame.escapeText || true;
       }
 
       if ((tag === 'script') || (tag === 'style')) {
@@ -233,7 +235,7 @@ function sanitizeHtml(html, options, _recursing) {
         // which have their own collection of XSS vectors.
         result.add(text);
       } else {
-        var escaped = escape ? escapeHtml(text) : text;
+        var escaped = escapeText ? escapeHtml(text) : text;
         if (options.textFilter) {
           result.add(options.textFilter(escaped));
         } else {
