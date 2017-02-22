@@ -143,8 +143,9 @@ function sanitizeHtml(html, options, _recursing) {
         frame.attribs = attribs = transformedTag.attribs;
         if (transformedTag.text !== undefined) {
           frame.innerText = transformedTag.text;
-          frame.escapeText = transformedTag.escape === false ? false : true;
         }
+
+        frame.escapeText = transformedTag.escape === false ? false : true;
 
         if (name !== transformedTag.tagName) {
           frame.name = name = transformedTag.tagName;
@@ -225,7 +226,7 @@ function sanitizeHtml(html, options, _recursing) {
         tag = lastFrame.tag;
         // If inner text was set by transform function then let's use it
         text = lastFrame.innerText !== undefined ? lastFrame.innerText : text;
-        escapeText = lastFrame.escapeText || true;
+        escapeText = escapeText = lastFrame.escapeText === false ? false : true;
       }
 
       if ((tag === 'script') || (tag === 'style')) {
