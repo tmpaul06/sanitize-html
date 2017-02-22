@@ -99,7 +99,7 @@ var echoStream = new stream.PassThrough();
 var htmlStream = fs.createReadStream('./test.html');
 echoStream.pipe(fs.createWriteStream('./sanitized.html'));
 
-sanitize(htmlStream, {
+sanitize(null, {
   stream: {
     // A readable stream
     input: htmlStream,

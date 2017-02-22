@@ -6,7 +6,7 @@
   "scripts": {
     "build": "browserify index.js > dist/sanitize-html.js --standalone 'sanitizeHtml'",
     "minify": "npm run build && uglifyjs dist/sanitize-html.js > dist/sanitize-html.min.js",
-    "test": "mocha test/test.js",
+    "test": "mocha test/test.js test/stream_test.js",
     "prebuild": "npm run test && rm -rf dist && mkdir dist"
   },
   "repository": {

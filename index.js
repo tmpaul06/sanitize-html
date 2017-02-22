@@ -291,6 +291,9 @@ function sanitizeHtml(html, options, _recursing) {
 
   if (options.stream) {
     var inputStream = options.stream.input;
+    if (!(typeof inputStream.read === 'function' && typeof inputStream.on === 'function')) {
+      throw new Error("For streaming the input must be a readable stream");
+    }
     // If output is defined, pipe to that stream, else use callback
     if (options.stream.output) {
       // Test if it is an instance of stream using duck typing
@@ -303,17 +306,20 @@ function sanitizeHtml(html, options, _recursing) {
         throw new Error('Stream "callback" field must be a function');
       }
     }
+    
     // Then treat html variable as a stream
-      html.on('data', function (data) {
-        parser.write(data);
-      });
+    inputStream.on('data', function (data) {
+      parser.write(data);
+    });
 
-      html.on('end', function () {
-        parser.end();
-        if (options.stream.callback) {
-          options.stream.callback(result.toString());
-        }
-      });
+    inputStream.on('end', function () {
+      parser.end();
+      if (options.stream && options.stream.callback) {
+        options.stream.callback(result.toString());
+      } else if (options.stream && options.stream.output) {
+        options.stream.output.end();
+      }
+    });
     return undefined;
   } else {
     parser.write(html);
