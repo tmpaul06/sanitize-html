@@ -281,6 +281,7 @@ function sanitizeHtml(html, options, _recursing) {
 
       if (options.selfClosing.indexOf(name) !== -1) {
          // Already output />
+         result.flush();
          return;
       }
 

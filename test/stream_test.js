@@ -44,7 +44,7 @@ describe('Streaming test', function() {
     var rStream = new stream.Readable();
     rStream._read = function(){}; 
     var wStream = new stream.Writable();
-    var original = '<html><body><a></a></body></html>'
+    var original = '<html><body><a><img /></a></body></html>'
     var sanitized = '';
     wStream._write = function(chunk, encoding, next) {
       sanitized += chunk.toString();
@@ -68,7 +68,7 @@ describe('Streaming test', function() {
   it("should call a callback with full string if provided", function (done) {
     var rStream = new stream.Readable();
     rStream._read = function(){}; 
-    var original = '<html><body><a></a></body></html>';
+    var original = '<html><body><a><img /></a></body></html>';
     sanitize(null, {
       allowedTags: false,
       stream: {
