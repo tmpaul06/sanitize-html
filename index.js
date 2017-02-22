@@ -211,6 +211,7 @@ function sanitizeHtml(html, options, _recursing) {
         result.add(">");
         if (frame.innerText && !hasText && !options.textFilter) {
           result.add(frame.innerText);
+          frame.resultAdded = true;
         }
       }
     },
@@ -226,9 +227,8 @@ function sanitizeHtml(html, options, _recursing) {
         tag = lastFrame.tag;
         // If inner text was set by transform function then let's use it
         text = lastFrame.innerText !== undefined ? lastFrame.innerText : text;
-        escapeText = escapeText = lastFrame.escapeText === false ? false : true;
+        escapeText = lastFrame.escapeText === false ? false : true;
       }
-
       if ((tag === 'script') || (tag === 'style')) {
         // htmlparser2 gives us these as-is. Escaping them ruins the content. Allowing
         // script tags is, by definition, game over for XSS protection, so if that's
@@ -236,16 +236,24 @@ function sanitizeHtml(html, options, _recursing) {
         // which have their own collection of XSS vectors.
         result.add(text);
       } else {
+        if (lastFrame && lastFrame.innerText && lastFrame.resultAdded) {
+          return;
+        }
         var escaped = escapeText ? escapeHtml(text) : text;
         if (options.textFilter) {
           result.add(options.textFilter(escaped));
         } else {
           result.add(escaped);
         }
+        if (lastFrame && lastFrame.innerText) {
+          lastFrame.resultAdded = true;
+        }
       }
       if (stack.length) {
            var frame = stack[stack.length - 1];
-           frame.text += text;
+           if (lastFrame && !lastFrame.innerText) {
+             frame.text += text;
+           }
       }
     },
     onclosetag: function(name) {
@@ -290,7 +298,6 @@ function sanitizeHtml(html, options, _recursing) {
          result.flush();
          return;
       }
-
       result.add("</" + name + ">");
       result.flush();
     }
